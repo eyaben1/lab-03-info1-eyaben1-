@@ -1,0 +1,33 @@
+# Utiliser l'image Python officielle comme base
+FROM python:3.11-slim
+
+# Creer un utilisateur non-root pour la securite
+RUN groupadd -r apiuser && useradd -r -g apiuser apiuser
+
+# Definir le repertoire de travail dans le conteneur
+WORKDIR /app
+
+# Copier d'abord requirements (pour un meilleur cache)
+COPY requirements.txt .
+
+# Installer les dependances
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copier le code de l'application
+COPY app.py .
+
+# Changer la propriete des fichiers pour l'utilisateur apiuser
+RUN chown -R apiuser:apiuser /app
+
+# Basculer vers l'utilisateur non-root
+USER apiuser
+
+# Exposer le port 5000
+EXPOSE 5000
+
+# Definir les variables d'environnement
+ENV FLASK_APP=app.py
+ENV FLASK_ENV=production
+
+# Executer l'application
+CMD ["python", "app.py"]
