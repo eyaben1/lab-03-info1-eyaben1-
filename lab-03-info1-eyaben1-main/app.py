@@ -1,7 +1,25 @@
 from flask import Flask, jsonify, request
 from datetime import datetime
+import logging
+import os
 
 app = Flask(__name__)
+
+# Configuration des logs
+log_dir = '/app/logs'
+if not os.path.exists(log_dir):
+    os.makedirs(log_dir)
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler(os.path.join(log_dir, 'flask.log')),
+        logging.StreamHandler()
+    ]
+)
+
+logger = logging.getLogger(__name__)
 
 # In-memory database
 books = [
@@ -34,6 +52,7 @@ def health():
 
 @app.route('/books', methods=['GET'])
 def get_books():
+    logger.info("GET /books - Retrieving all books")
     return jsonify({"books": books, "count": len(books)})
 
 @app.route('/books/<int:book_id>', methods=['GET'])
@@ -46,6 +65,7 @@ def get_book(book_id):
 @app.route('/books', methods=['POST'])
 def add_book():
     if not request.json or not all(k in request.json for k in ['title', 'author', 'year']):
+        logger.warning("POST /books - Missing required fields")
         return jsonify({"error": "Missing required fields"}), 400
     
     new_book = {
@@ -55,6 +75,7 @@ def add_book():
         "year": request.json['year']
     }
     books.append(new_book)
+    logger.info(f"POST /books - Added new book: {new_book['title']} by {new_book['author']}")
     return jsonify(new_book), 201
 
 @app.route('/books/<int:book_id>', methods=['PUT'])
@@ -72,10 +93,13 @@ def delete_book(book_id):
     global books
     book = next((b for b in books if b["id"] == book_id), None)
     if not book:
+        logger.warning(f"DELETE /books/{book_id} - Book not found")
         return jsonify({"error": "Book not found"}), 404
     
     books = [b for b in books if b["id"] != book_id]
+    logger.info(f"DELETE /books/{book_id} - Book deleted: {book['title']}")
     return jsonify({"message": "Book deleted successfully"})
 
 if __name__ == '__main__':
+    logger.info("Starting Flask application")
     app.run(host='0.0.0.0', port=5000, debug=True)
